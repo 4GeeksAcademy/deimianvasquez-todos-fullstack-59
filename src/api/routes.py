@@ -2,7 +2,7 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User, RevokedToken
+from api.models import db, User, RevokedToken, Todos
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -137,3 +137,93 @@ def logout():
         return jsonify({"message": "Error revocando token", "error": str(e)}), 500
 
     return jsonify({"message": "Token revocado"}), 200
+
+
+@api.route('/me', methods=['GET'])
+@jwt_required()
+def get_current_user():
+    current_user_id = get_jwt_identity()
+    user = User.query.get(current_user_id)
+    if not user:
+        return jsonify({"message": "User not found"}), 404
+    return jsonify(user.serialize()), 200
+
+
+@api.route('/todos', methods=['GET'])
+@jwt_required()
+def get_todos():
+    current_user_id = get_jwt_identity()
+    todos = Todos.query.filter_by(user_id=current_user_id).all()
+    todos = {
+        "todos": [todo.serialize() for todo in todos],
+        "user_id": current_user_id
+    }
+
+    return jsonify(todos), 200
+
+
+@api.route('/todos', methods=['POST'])
+@jwt_required()
+def create_todo():
+    current_user_id = get_jwt_identity()
+    data = request.get_json()
+    label = data.get("label")
+    if not label:
+        return jsonify({"message": "Label is required"}), 400
+
+    new_todo = Todos(
+        label=label,
+        is_done=False,
+        user_id=current_user_id
+    )
+    db.session.add(new_todo)
+    try:
+        db.session.commit()
+        return jsonify(new_todo.serialize()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error creating todo", "error": str(e)}), 500
+
+
+@api.route('/todos/<int:todo_id>', methods=['PUT'])
+@jwt_required()
+def update_todo(todo_id):
+    current_user_id = get_jwt_identity()
+    todo = Todos.query.filter_by(
+        id=todo_id, user_id=current_user_id).one_or_none()
+    if not todo:
+        return jsonify({"message": "Todo not found"}), 404
+
+    data = request.get_json()
+    label = data.get("label")
+    is_done = data.get("is_done")
+
+    if label is not None:
+        todo.label = label
+    if is_done is not None:
+        todo.is_done = is_done
+
+    try:
+        db.session.commit()
+        return jsonify(todo.serialize()), 200
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error updating todo", "error": str(e)}), 500
+
+
+@api.route('/todos/<int:todo_id>', methods=['DELETE'])
+@jwt_required()
+def delete_todo(todo_id):
+    current_user_id = get_jwt_identity()
+    todo = Todos.query.filter_by(
+        id=todo_id, user_id=current_user_id).one_or_none()
+    if not todo:
+        return jsonify({"message": "Todo not found"}), 404
+
+    db.session.delete(todo)
+    try:
+        db.session.commit()
+        return jsonify([]), 204
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error deleting todo", "error": str(e)}), 500
