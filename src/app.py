@@ -6,7 +6,7 @@ from flask import Flask, request, jsonify, url_for, send_from_directory
 from flask_migrate import Migrate
 from flask_swagger import swagger
 from api.utils import APIException, generate_sitemap
-from api.models import db
+from api.models import db, RevokedToken
 from api.routes import api
 from api.admin import setup_admin
 from api.commands import setup_commands
@@ -31,6 +31,7 @@ else:
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 MIGRATE = Migrate(app, db, compare_type=True)
 db.init_app(app)
+app.config["JWT_SECRET_KEY"] = "super-secret"
 jwt = JWTManager(app)
 
 # add the admin
@@ -68,6 +69,15 @@ def serve_any_other_file(path):
     response = send_from_directory(static_file_dir, path)
     response.cache_control.max_age = 0  # avoid cache memory
     return response
+
+
+@jwt.token_in_blocklist_loader
+def check_if_token_revoked(jwt_header, jwt_payload):
+    jti = jwt_payload.get("jti")
+    if not jti:
+        return False
+    # devuelve True si el token está revocado (entonces flask_jwt_extended lo rechazará)
+    return RevokedToken.query.filter_by(jti=jti).first() is not None
 
 
 # this only runs if `$ python src/main.py` is executed

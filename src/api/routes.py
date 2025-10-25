@@ -2,14 +2,15 @@
 This module takes care of starting the API Server, Loading the DB and Adding the endpoints
 """
 from flask import Flask, request, jsonify, url_for, Blueprint
-from api.models import db, User
+from api.models import db, User, RevokedToken
 from api.utils import generate_sitemap, APIException
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
 import os
 from base64 import b64encode
-from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from datetime import timedelta
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
+from datetime import timedelta, datetime, timezone
+from sqlalchemy.exc import IntegrityError
 
 api = Blueprint('api', __name__)
 
@@ -25,9 +26,10 @@ def health_check():
 @api.route('/register', methods=['POST'])
 def register_user():
     data = request.get_json()
-
+    # normalize and validate email
+    email = (data.get("email") or "").strip().lower()
     data = {
-        "email": data.get("email"),
+        "email": email,
         "password": data.get("password"),
         "lastname": data.get("lastname"),
         "avatar": data.get("avatar", "https://i.pravatar.cc/300"),
@@ -45,7 +47,7 @@ def register_user():
 
     new_user = User(
         email=data["email"],
-        password=password,
+        password_hash=password,
         lastname=data["lastname"],
         avatar=data["avatar"],
         is_active=data["is_active"],
@@ -64,8 +66,8 @@ def register_user():
 @api.route('/login', methods=['POST'])
 def login_user():
     data = request.get_json()
-
-    email = data.get("email")
+    # normalize email for lookup
+    email = (data.get("email") or "").strip().lower()
     password = data.get("password")
 
     if not email or not password:
@@ -76,11 +78,19 @@ def login_user():
     if not user:
         return jsonify({"message": "Invalid credentials"}), 404
 
-    if not check_password_hash(user.password, password + user.salt):
+    if not check_password_hash(user.password_hash, password + user.salt):
         return jsonify({"message": "Invalid credentials"}), 401
 
+    jti = os.urandom(16).hex()
+    expires = timedelta(days=1)
+    token = create_access_token(
+        identity=str(user.id),
+        expires_delta=expires,
+        additional_claims={"jti": jti}
+    )
+
     return jsonify({
-        "token": create_access_token(identity=str(user.id), expires_delta=timedelta(days=1)),
+        "token": token,
     }), 200
 
 
@@ -96,3 +106,34 @@ def get_users():
     users = User.query.all()
 
     return jsonify([user.serialize() for user in users]), 200
+
+
+@api.route('/logout', methods=['POST'])
+@jwt_required()
+def logout():
+    payload = get_jwt()
+
+    jti = payload.get('jti')
+    exp = payload.get('exp')  # timestamp en segundos
+
+    if not jti or not exp:
+        return jsonify({"message": "Token inválido, no se puede revocar"}), 400
+
+    # convertir exp (timestamp) a datetime aware en UTC
+    try:
+        expires_at = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+    except Exception:
+        return jsonify({"message": "Formato de 'exp' inválido en el token"}), 400
+
+    revoked = RevokedToken(jti=jti, expires_at=expires_at)
+    db.session.add(revoked)
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        # Ya estaba revocado — tratamos como éxito (idempotente)
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({"message": "Error revocando token", "error": str(e)}), 500
+
+    return jsonify({"message": "Token revocado"}), 200
