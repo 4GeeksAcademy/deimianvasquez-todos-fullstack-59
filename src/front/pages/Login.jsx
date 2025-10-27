@@ -1,4 +1,5 @@
 import React from "react";
+import { Link } from "react-router-dom"
 
 const Login = () => {
     return (
@@ -42,10 +43,10 @@ const Login = () => {
 
                 {/* <br/> */}
 
-                {/* <div className="col-12 col-md-6 d-flex justify-content-between my-1">
+                <div className="col-12 col-md-6 d-flex justify-content-between my-1">
                     <Link to={"/register"}>Registrarme</Link>
                     <Link to={"/recovery-password"}>Olvido su contraseña</Link>
-                </div> */}
+                </div>
             </div>
         </div>
 

@@ -32,7 +32,7 @@ def register_user():
         "email": email,
         "password": data.get("password"),
         "lastname": data.get("lastname"),
-        "avatar": data.get("avatar", "https://i.pravatar.cc/300"),
+        "avatar": "https://i.pravatar.cc/300",
         "is_active": True
     }
 
