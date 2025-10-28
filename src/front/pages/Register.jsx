@@ -1,20 +1,28 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import { useState, useRef } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Toaster, toast } from 'sonner';
 
 const initialUserState = {
     lastname: "",
     email: "",
-    avatar: "",
+    avatar: null,
     password: ""
 }
 
 const Register = () => {
     const [user, setUser] = useState(initialUserState);
+    const fileInputRef = useRef(null);
+    const navigate = useNavigate();
 
     const handleChange = (event) => {
         const { name, value } = event.target;
         setUser({ ...user, [name]: value });
     };
+
+    const handleFileChange = (event) => {
+        const file = event.target.files[0];
+        setUser({ ...user, avatar: file });
+    }
 
     const handleSubmit = async (event) => {
         event.preventDefault();
@@ -29,12 +37,19 @@ const Register = () => {
             }
         });
 
+
         const data = await response.json();
         if (response.ok) {
-            alert(`${data.message}`);
-            // Aquí puedes redirigir al usuario o mostrar un mensaje de éxito
+            setUser(initialUserState);
+            fileInputRef.current.value = null;
+
+            toast.success('Usuario registrado con éxito')
+            setTimeout(() => {
+                navigate('/login');
+            }, 1500);
+
         } else {
-            alert(`${data.message}`);
+            toast.error(`${data.message}`);
             // Aquí puedes manejar errores, mostrar mensajes, etc.
         }
     }
@@ -57,7 +72,7 @@ const Register = () => {
                                     className="form-control"
                                     id="txtLastname"
                                     name="lastname"
-                                    // value={user.lastname}
+                                    value={user.lastname}
                                     onChange={handleChange}
                                 />
                             </div>
@@ -70,7 +85,7 @@ const Register = () => {
                                     className="form-control"
                                     id="txtEmail"
                                     name="email"
-                                    // value={user.email}
+                                    value={user.email}
                                     onChange={handleChange}
                                 />
                             </div>
@@ -84,10 +99,8 @@ const Register = () => {
                                     className="form-control"
                                     id="txtAvatar"
                                     name="avatar"
-                                    // value={user.avatar}
-                                    onChange={(event) => {
-                                        setUser({ ...user, avatar: event.target.files[0] })
-                                    }}
+                                    ref={fileInputRef}
+                                    onChange={handleFileChange}
                                 />
                             </div>
 
@@ -100,7 +113,7 @@ const Register = () => {
                                     className="form-control"
                                     id="btnPassword"
                                     name="password"
-                                    // value={user.password}
+                                    value={user.password}
                                     onChange={handleChange}
                                 />
                             </div>
@@ -109,12 +122,12 @@ const Register = () => {
                     </div>
 
                     <div className="w-100"></div>
+                    <Toaster position="top-right" />
 
                     {/* <br/> */}
 
                     <div className="col-12 col-md-6 d-flex justify-content-between my-1">
                         <Link to={"/login"}>Ya tengo una cuenta</Link>
-
                     </div>
                 </div>
             </div>
