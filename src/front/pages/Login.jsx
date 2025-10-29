@@ -62,6 +62,9 @@ const Login = () => {
                 payload: dataUser,
             });
 
+            localStorage.setItem("token", data.token);
+            localStorage.setItem("user", JSON.stringify(dataUser));
+
             setTimeout(() => {
                 navigate('/');
             }, 1500);

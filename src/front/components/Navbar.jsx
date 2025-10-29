@@ -4,6 +4,28 @@ import useGlobalReducer from "../hooks/useGlobalReducer";
 export const Navbar = () => {
 	const { store, dispatch } = useGlobalReducer();
 
+	const handleLogout = async () => {
+		try {
+			if (store && store.token) {
+				// Llamada opcional al backend para revocar token
+				await fetch('/api/logout', {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+						'Authorization': `Bearer ${store.token}`
+					}
+				});
+			}
+		} catch (e) {
+			// Ignoramos errores de red; igual hacemos logout local
+		}
+
+		// Limpiar token en el store y redirigir
+		dispatch({ type: 'SET_TOKEN', payload: null });
+		navigate('/login');
+	};
+
+
 	return (
 		<nav className="navbar navbar-expand-sm navbar-dark bg-dark navbar-custom">
 			<div className="container-fluid">
@@ -24,7 +46,10 @@ export const Navbar = () => {
 						store.token ? (
 							<div className="mb-3 mb-sm-0">
 								{/* <NavLink className={({ isActive }) => isActive ? "bordered" : ""} to="/logout">Cerrar sesión</NavLink> */}
-								<button className="btn btn-outline-light me-3">Cerrar sesión</button>
+								<button
+									className="btn btn-outline-light me-3"
+									onClick={handleLogout}
+								>Cerrar sesión</button>
 							</div>
 						) :
 							(<div className="mb-3 mb-sm-0">
@@ -41,7 +66,7 @@ export const Navbar = () => {
 					{
 						store.token ? (
 							<div className="profile-pic-navbar">
-								<img src="https://i.pravatar.cc/300" alt="Profile" className="profile-pic-img-navbar" />
+								<img src={store?.user?.avatar} alt="Profile" className="profile-pic-img-navbar" />
 							</div>) : null
 					}
 

@@ -13,8 +13,8 @@ export const initialStore = () => {
         background: null,
       },
     ],
-    token: null,
-    user: null,
+    token: localStorage.getItem("token") || null,
+    user: JSON.parse(localStorage.getItem("user")) || null,
   };
 };
 
