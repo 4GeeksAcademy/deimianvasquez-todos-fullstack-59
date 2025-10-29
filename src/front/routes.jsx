@@ -11,6 +11,8 @@ import { Single } from "./pages/Single";
 import { Demo } from "./pages/Demo";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import Tasks from "./pages/Tasks";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 export const router = createBrowserRouter(
   createRoutesFromElements(
@@ -29,6 +31,11 @@ export const router = createBrowserRouter(
       <Route path="/demo" element={<Demo />} />
       <Route path="/login" element={<Login />} />
       <Route path="/register" element={<Register />} />
+      <Route path="/tasks" element={
+        <ProtectedRoute>
+          <Tasks />
+        </ProtectedRoute>
+      } />
       <Route path="*" element={<h1>Not found!</h1>} /> {/* Catch-all route for undefined paths */}
     </Route>
   )
